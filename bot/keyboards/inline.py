@@ -3,7 +3,7 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from bot.i18n import localize
 from bot.database.models import Permission
-from bot.misc import LazyPaginator # noqa: F401
+from bot.misc import EnvKeys, LazyPaginator # noqa: F401
 
 
 def main_menu(role: int, channel: str | None = None, helper: str | None = None) -> InlineKeyboardMarkup:
@@ -20,7 +20,7 @@ def main_menu(role: int, channel: str | None = None, helper: str | None = None) 
         kb.button(text=localize("btn.channel"), url=f"https://t.me/{channel.lstrip('@')}")
     if Permission.has_any_admin_perm(role):
         kb.button(text=localize("btn.admin_menu"), callback_data="console")
-    kb.adjust(2)
+    kb.adjust(1)
     return kb.as_markup()
 
 
@@ -162,24 +162,27 @@ def item_info(
     leaving the user at a dead end.
     """
     kb = InlineKeyboardBuilder()
-    kb.button(text=localize("btn.buy"), callback_data="buy_item")
-    kb.button(text=localize("btn.add_to_cart"), callback_data="add_to_cart")
+    kb.row(InlineKeyboardButton(text=localize("btn.buy"), callback_data="buy_item"))
+    kb.row(InlineKeyboardButton(text=localize("btn.add_to_cart"), callback_data="add_to_cart"))
     if applied_promo:
-        kb.button(text=localize("btn.remove_promo"), callback_data="remove_promo")
+        kb.row(InlineKeyboardButton(text=localize("btn.remove_promo"), callback_data="remove_promo"))
     else:
-        kb.button(text=localize("btn.apply_promo"), callback_data="apply_promo")
+        kb.row(InlineKeyboardButton(text=localize("btn.apply_promo"), callback_data="apply_promo"))
     if reviews_enabled:
         if review_count > 0:
-            kb.button(text=localize("btn.view_reviews", count=review_count), callback_data="reviews:0")
+            kb.row(InlineKeyboardButton(
+                text=localize("btn.view_reviews", count=review_count), callback_data="reviews:0"
+            ))
         if has_purchased:
-            kb.button(text=localize("btn.leave_review"), callback_data="review")
+            kb.row(InlineKeyboardButton(text=localize("btn.leave_review"), callback_data="review"))
     if out_of_stock:
         if subscribed:
-            kb.button(text=localize("btn.notify_stock_off"), callback_data="unsub_stock")
+            kb.row(InlineKeyboardButton(
+                text=localize("btn.notify_stock_off"), callback_data="unsub_stock"
+            ))
         else:
-            kb.button(text=localize("btn.notify_stock"), callback_data="sub_stock")
-    kb.button(text=localize("btn.back"), callback_data=back_data)
-    kb.adjust(2)
+            kb.row(InlineKeyboardButton(text=localize("btn.notify_stock"), callback_data="sub_stock"))
+    kb.row(InlineKeyboardButton(text=localize("btn.back"), callback_data=back_data))
     return kb.as_markup()
 
 
