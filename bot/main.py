@@ -227,6 +227,8 @@ async def _shutdown(ctx: AppContext, bot: Bot) -> None:
     # Close CryptoPay shared HTTP session
     from bot.misc.services.payment import CryptoPayAPI
     await CryptoPayAPI.close_session()
+    from bot.misc.services.payment import BinanceAPI
+    await BinanceAPI.close_session()
 
     # Let fire-and-forget invalidations and audit rows land while the engine and Redis are both still open.
     from bot.database.methods.cache_utils import drain_background_tasks

@@ -200,6 +200,29 @@ class BoughtGoods(Database.BASE):
         return self.item_name or ""
 
 
+class UpiScanOrder(Database.BASE):
+    __tablename__ = 'upi_scan_orders'
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    bought_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey('bought_goods.id', ondelete='CASCADE'), nullable=False, unique=True)
+    buyer_id: Mapped[Optional[int]] = mapped_column(
+        BigInteger, ForeignKey('users.telegram_id', ondelete='SET NULL'), nullable=True, index=True)
+    link: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default='pending', index=True)
+    claimed_by: Mapped[Optional[int]] = mapped_column(
+        BigInteger, ForeignKey('users.telegram_id', ondelete='SET NULL'), nullable=True, index=True)
+    claimed_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    completed_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (
+        Index('ix_upi_scan_orders_status_created', 'status', 'id'),
+        Index('ix_upi_scan_orders_claimed_by_status', 'claimed_by', 'status'),
+    )
+
+    def __str__(self):
+        return f"UPI-{self.id}"
+
+
 class Operations(Database.BASE):
     __tablename__ = 'operations'
     id: Mapped[int] = mapped_column(Integer, primary_key=True)

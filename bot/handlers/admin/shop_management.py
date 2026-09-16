@@ -69,6 +69,8 @@ async def shop_callback_handler(call: CallbackQuery):
         actions.append((localize("admin.shop.menu.users"), "users_list"))
     if role & Permission.CATALOG_MANAGE:
         actions.append((localize("admin.shop.menu.search_bought"), "show_bought_item"))
+    if role & Permission.OWN:
+        actions.append(("UPI scan admin work", "upi_stats"))
     actions.append((localize("btn.back"), "console"))
 
     markup = simple_buttons(actions, per_row=1)

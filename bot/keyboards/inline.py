@@ -43,6 +43,14 @@ def profile_keyboard(referral_percent: int, user_items: int = 0, cart_count: int
     return kb.as_markup()
 
 
+def manual_deposit_keyboard(admin_id: int) -> InlineKeyboardMarkup:
+    kb = InlineKeyboardBuilder()
+    kb.button(text="Contact deposit admin", url=f"tg://user?id={admin_id}")
+    kb.button(text=localize("btn.back"), callback_data="profile")
+    kb.adjust(1)
+    return kb.as_markup()
+
+
 def admin_console_keyboard(maintenance_mode: bool = False, role: int = 127) -> InlineKeyboardMarkup:
     """
     Admin panel — shows only buttons the user has permissions for.
@@ -77,6 +85,10 @@ def simple_buttons(buttons: Iterable[Tuple[str, str]], per_row: int = 1) -> Inli
         kb.button(text=text, callback_data=cb)
     kb.adjust(per_row)
     return kb.as_markup()
+
+
+def upi_order_keyboard(order_id: int) -> InlineKeyboardMarkup:
+    return simple_buttons([("Claim order", f"upi_claim:{order_id}")])
 
 
 def back(cb: str = "menu", text: str | None = None) -> InlineKeyboardMarkup:
@@ -217,15 +229,17 @@ def get_payment_choice() -> InlineKeyboardMarkup:
     """
     Select a payment method.
     """
-    return simple_buttons(
-        [
-            (localize("btn.pay.crypto"), "pay_cryptopay"),
-            (localize("btn.pay.stars"), "pay_stars"),
-            (localize("btn.pay.tg"), "pay_fiat"),
-            (localize("btn.back"), "replenish_balance"),
-        ],
-        per_row=1,
-    )
+    actions = []
+    if EnvKeys.CRYPTO_PAY_TOKEN:
+        actions.append((localize("btn.pay.crypto"), "pay_cryptopay"))
+    if EnvKeys.STARS_PER_VALUE > 0:
+        actions.append((localize("btn.pay.stars"), "pay_stars"))
+    if EnvKeys.TELEGRAM_PROVIDER_TOKEN:
+        actions.append((localize("btn.pay.tg"), "pay_fiat"))
+    if EnvKeys.BINANCE_API_KEY and EnvKeys.BINANCE_API_SECRET:
+        actions.append((localize("btn.pay.binance"), "pay_binance"))
+    actions.append((localize("btn.back"), "replenish_balance"))
+    return simple_buttons(actions, per_row=1)
 
 
 def question_buttons(question: str, back_data: str) -> InlineKeyboardMarkup:

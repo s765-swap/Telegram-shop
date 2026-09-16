@@ -23,6 +23,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "btn.pay.crypto": "💎 CryptoPay",
         "btn.pay.stars": "⭐ Telegram Stars",
         "btn.pay.tg": "💸 Telegram Payments",
+        "btn.pay.binance": "₿ Binance USDT",
 
         # === Admin Buttons (user management shortcuts) ===
         "btn.admin.view_profile": "👁 Посмотреть профиль",
@@ -319,6 +320,8 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
 
         # === Payments / Top-up Flow ===
         "payments.replenish_prompt": "Введите сумму пополнения в {currency}:",
+        "payments.manual.request_sent": "✅ Запрос на пополнение {amount} {currency} отправлен администратору. После оплаты администратор вручную начислит средства.",
+        "payments.manual.admin_unavailable": "❌ Не удалось связаться с администратором. Попробуйте позже.",
         "payments.replenish_invalid": "❌ Неверная сумма. Введите число от {min_amount} до {max_amount} {currency}.",
         "payments.deduct_prompt": "Введите сумму списания в {currency}:",
         "payments.deduct_invalid": "❌ Неверная сумма. Введите число от {min_amount} до {max_amount} {currency}.",
@@ -339,6 +342,15 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
             "⌛️ У вас есть {minutes} минут на оплату.\n"
             "<b>❗️ После оплаты нажмите кнопку «{button}»</b>"
         ),
+        "payments.binance.instructions": (
+            "Пополните баланс на <b>{amount} USDT</b> в сети <b>{network}</b>.\n"
+            "Адрес: <code>{address}</code>\nМемо/тег: <code>{memo}</code>\n\n"
+            "После оплаты отправьте TXID транзакции:"
+        ),
+        "payments.binance.invalid_txid": "❌ Отправьте корректный TXID без пробелов.",
+        "payments.binance.verification_failed": "❌ Ошибка проверки Binance. Попробуйте позже.",
+        "payments.binance.not_found": "⌛️ Депозит пока не найден или ещё не подтверждён.",
+        "payments.binance.confirmed": "✅ Пополнение подтверждено: {amount} {currency}.",
         "payments.unable_determine_amount": "❌ Не удалось определить сумму оплаты.",
         "payments.topped_simple": "✅ Баланс пополнен на {amount} {currency}",
         "payments.topped_with_suffix": "✅ Баланс пополнен на {amount} {currency} ({suffix})",
@@ -371,6 +383,10 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "shop.purchase.success": "✅ Товар куплен. <b>Баланс</b>: <i>{balance}</i> {currency}\n\n{value}",
         "shop.purchase.receipt": "✅ Заказ успешно оформлен!\n➖➖➖➖➖➖➖➖➖➖➖➖\n📃 Товар: {item_name}\n💰 Цена: {price} {currency}\n📦 Кол-во: 1 шт.\n💡 Заказ: {unique_id}\n🕐 Время: {datetime}\n💲 Итого: {price} {currency}\n👤 Покупатель: @{username} ({user_id})\n➖➖➖➖➖➖➖➖➖➖➖➖\n🔑 Значение:\n<code>{value}</code>",
         "shop.purchase.processing": "⏳ Обрабатываем покупку...",
+        "shop.upi_scan.prompt": "✅ Покупка подтверждена. Отправьте ссылку для UPI scan:",
+        "shop.upi_scan.invalid_link": "❌ Отправьте полную ссылку, начинающуюся с http:// или https://.",
+        "shop.upi_scan.sent": "✅ Ссылка отправлена администратору.",
+        "shop.upi_scan.delivery_failed": "❌ Не удалось отправить ссылку администратору. Обратитесь в поддержку.",
         "shop.purchase.fail.user_not_found": "❌ Пользователь не найден в системе",
         "shop.purchase.fail.general": "❌ Ошибка при покупке: {message}",
 
@@ -560,6 +576,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "btn.pay.crypto": "💎 CryptoPay",
         "btn.pay.stars": "⭐ Telegram Stars",
         "btn.pay.tg": "💸 Telegram Payments",
+        "btn.pay.binance": "₿ Binance USDT",
 
         # === Admin Buttons (user management shortcuts) ===
         "btn.admin.view_profile": "👁 View profile",
@@ -856,6 +873,8 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
 
         # === Payments / Top-up Flow ===
         "payments.replenish_prompt": "Enter top-up amount in {currency}:",
+        "payments.manual.request_sent": "✅ Your request for {amount} {currency} was sent to the admin. The admin will credit your balance manually after payment.",
+        "payments.manual.admin_unavailable": "❌ The deposit admin is unavailable. Please try again later.",
         "payments.replenish_invalid": "❌ Invalid amount. Enter a number from {min_amount} to {max_amount} {currency}.",
         "payments.deduct_prompt": "Enter deduction amount in {currency}:",
         "payments.deduct_invalid": "❌ Invalid amount. Enter a number from {min_amount} to {max_amount} {currency}.",
@@ -876,6 +895,15 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
             "⌛️ You have {minutes} minutes to pay.\n"
             "<b>❗️ After paying, press «{button}»</b>"
         ),
+        "payments.binance.instructions": (
+            "Send <b>{amount} USDT</b> on the <b>{network}</b> network.\n"
+            "Address: <code>{address}</code>\nMemo/tag: <code>{memo}</code>\n\n"
+            "After payment, send the blockchain TXID:"
+        ),
+        "payments.binance.invalid_txid": "❌ Send a valid TXID without spaces.",
+        "payments.binance.verification_failed": "❌ Binance verification failed. Try again later.",
+        "payments.binance.not_found": "⌛️ Deposit not found yet or not confirmed.",
+        "payments.binance.confirmed": "✅ Top-up confirmed: {amount} {currency}.",
         "payments.unable_determine_amount": "❌ Failed to determine the paid amount.",
         "payments.topped_simple": "✅ Balance topped up by {amount} {currency}",
         "payments.topped_with_suffix": "✅ Balance topped up by {amount} {currency} ({suffix})",

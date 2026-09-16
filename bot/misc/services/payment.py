@@ -1,7 +1,11 @@
 import aiohttp
+import hashlib
+import hmac
 import json
 import math
+import time
 from typing import Optional
+from urllib.parse import urlencode
 
 from aiogram import Bot
 from aiogram.types import LabeledPrice
@@ -124,6 +128,72 @@ class CryptoPayAPIError(Exception):
         self.name = name
         self.message = message or name
         super().__init__(f"CryptoPay API Error [{code}]: {name}")
+
+
+class BinanceAPIError(Exception):
+    """Raised when Binance deposit verification fails."""
+
+
+class BinanceAPI:
+    """Read-only Binance Spot API client for verifying USDT deposits."""
+
+    base_url = "https://api.binance.com"
+    _session: Optional[aiohttp.ClientSession] = None
+
+    def __init__(self):
+        self.api_key = EnvKeys.BINANCE_API_KEY
+        self.api_secret = EnvKeys.BINANCE_API_SECRET
+
+    @classmethod
+    def _get_session(cls) -> aiohttp.ClientSession:
+        if cls._session is None or cls._session.closed:
+            cls._session = aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=30))
+        return cls._session
+
+    @classmethod
+    async def close_session(cls):
+        if cls._session and not cls._session.closed:
+            await cls._session.close()
+            cls._session = None
+
+    async def _signed_get(self, path: str, params: dict) -> dict:
+        params = {**params, "timestamp": int(time.time() * 1000), "recvWindow": 5000}
+        query = urlencode(params)
+        signature = hmac.new(self.api_secret.encode(), query.encode(), hashlib.sha256).hexdigest()
+        headers = {"X-MBX-APIKEY": self.api_key}
+        async with self._get_session().get(
+            f"{self.base_url}{path}?{query}&signature={signature}", headers=headers
+        ) as response:
+            data = await response.json()
+            if response.status >= 400 or data.get("code", 0) < 0:
+                raise BinanceAPIError(data.get("msg", "Binance API request failed"))
+            return data
+
+    async def get_deposit_address(self, network: str) -> dict:
+        return await self._signed_get(
+            "/sapi/v1/capital/deposit/address",
+            {"coin": "USDT", "network": network},
+        )
+
+    async def verify_usdt_deposit(self, txid: str, expected_amount: float, network: str,
+                                  deposit_address: str = "") -> dict | None:
+        data = await self._signed_get(
+            "/sapi/v1/capital/deposit/hisrec",
+            {"coin": "USDT", "txId": txid},
+        )
+        for deposit in data.get("depositList", []):
+            if deposit.get("txId") != txid:
+                continue
+            if int(deposit.get("status", 0)) != 1:
+                return None
+            if deposit.get("network") != network:
+                return None
+            if deposit_address and deposit.get("address") != deposit_address:
+                return None
+            if float(deposit.get("amount", 0)) < expected_amount:
+                return None
+            return deposit
+        return None
 
 
 class CircuitBreaker:

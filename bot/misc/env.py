@@ -30,11 +30,16 @@ class EnvKeys(ABC):
     # Telegram
     TOKEN: Final = _get_required('TOKEN')
     OWNER_ID: Final = int(_get_required('OWNER_ID'))
+    MANUAL_DEPOSIT_ADMIN_ID: Final = int(
+        _get_optional('MANUAL_DEPOSIT_ADMIN_ID', str(OWNER_ID))
+    )
 
-    # Database
-    POSTGRES_DB: Final = _get_required("POSTGRES_DB")
-    POSTGRES_USER: Final = _get_required("POSTGRES_USER")
-    POSTGRES_PASSWORD: Final = _get_required("POSTGRES_PASSWORD")
+    # Database. Railway can provide a complete private connection URL; local
+    # Docker continues to use the individual POSTGRES_* settings.
+    DATABASE_URL: Final = _get_optional("DATABASE_URL", "")
+    POSTGRES_DB: Final = _get_optional("POSTGRES_DB", "")
+    POSTGRES_USER: Final = _get_optional("POSTGRES_USER", "")
+    POSTGRES_PASSWORD: Final = _get_optional("POSTGRES_PASSWORD", "")
     DB_PORT: Final = int(_get_optional("DB_PORT", "5432"))
     POSTGRES_HOST: Final = _get_optional("POSTGRES_HOST", "localhost")
     DB_POOL_SIZE: Final = int(_get_optional("DB_POOL_SIZE", "10"))
@@ -51,6 +56,11 @@ class EnvKeys(ABC):
     TELEGRAM_PROVIDER_TOKEN: Final = _get_optional("TELEGRAM_PROVIDER_TOKEN", "")
     CRYPTO_PAY_TOKEN: Final = _get_optional("CRYPTO_PAY_TOKEN", "")
     STARS_PER_VALUE: Final = float(_get_optional("STARS_PER_VALUE", "0.91"))
+    BINANCE_API_KEY: Final = _get_optional("BINANCE_API_KEY", "")
+    BINANCE_API_SECRET: Final = _get_optional("BINANCE_API_SECRET", "")
+    BINANCE_USDT_NETWORK: Final = _get_optional("BINANCE_USDT_NETWORK", "TRX")
+    BINANCE_DEPOSIT_ADDRESS: Final = _get_optional("BINANCE_DEPOSIT_ADDRESS", "")
+    BINANCE_USDT_RATE: Final = float(_get_optional("BINANCE_USDT_RATE", "1"))
     REFERRAL_PERCENT: Final = int(_get_optional("REFERRAL_PERCENT", "0"))
     PAY_CURRENCY: Final = _get_optional("PAY_CURRENCY", "RUB")
     PAYMENT_TIME: Final = int(_get_optional("PAYMENT_TIME", "1800"))
@@ -74,7 +84,9 @@ class EnvKeys(ABC):
 
     # Web admin panel
     ADMIN_HOST: Final = _get_optional("ADMIN_HOST", _get_optional("MONITORING_HOST", "localhost"))
-    ADMIN_PORT: Final = int(_get_optional("ADMIN_PORT", _get_optional("MONITORING_PORT", "9090")))
+    ADMIN_PORT: Final = int(
+        _get_optional("ADMIN_PORT", _get_optional("PORT", _get_optional("MONITORING_PORT", "9090")))
+    )
     ADMIN_USERNAME: Final = _get_optional("ADMIN_USERNAME", "admin")
     ADMIN_PASSWORD: Final = _get_optional("ADMIN_PASSWORD", _DEFAULT_ADMIN_PASSWORD)
     SECRET_KEY: Final = _get_optional("SECRET_KEY", _DEFAULT_SECRET_KEY)
@@ -92,7 +104,18 @@ class EnvKeys(ABC):
     AUDIT_RETENTION_DAYS: Final = int(_get_optional("AUDIT_RETENTION_DAYS", "90"))
     PAYMENTS_RETENTION_DAYS: Final = int(_get_optional("PAYMENTS_RETENTION_DAYS", "90"))
 
-    DATABASE_URL: Final = f"postgresql+asyncpg://{POSTGRES_USER}:{quote_plus(POSTGRES_PASSWORD)}@{POSTGRES_HOST}:{DB_PORT}/{POSTGRES_DB}"
+    if DATABASE_URL:
+        _database_url = DATABASE_URL
+        if _database_url.startswith("postgres://"):
+            _database_url = "postgresql://" + _database_url[len("postgres://"):]
+        if _database_url.startswith("postgresql://"):
+            _database_url = "postgresql+asyncpg://" + _database_url[len("postgresql://"):]
+        DATABASE_URL: Final = _database_url
+    else:
+        DATABASE_URL: Final = (
+            f"postgresql+asyncpg://{POSTGRES_USER}:{quote_plus(POSTGRES_PASSWORD)}"
+            f"@{POSTGRES_HOST}:{DB_PORT}/{POSTGRES_DB}"
+        )
 
     @classmethod
     def panel_is_exposed(cls) -> bool:

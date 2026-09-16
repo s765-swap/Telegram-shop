@@ -2,6 +2,7 @@ from decimal import Decimal
 from typing import Optional, Annotated, Self
 from pydantic import BaseModel, Field, StringConstraints, field_validator, model_validator
 import re
+from urllib.parse import urlparse
 
 
 class PaymentRequest(BaseModel):
@@ -32,6 +33,19 @@ class ItemPurchaseRequest(BaseModel):
         # Block control characters (0x00-0x1F, 0x7F)
         if re.search(r'[\x00-\x1f\x7f]', v):
             raise ValueError('Invalid characters in item name')
+        return v
+
+
+class UpiScanLinkRequest(BaseModel):
+    """Validate the link submitted for a UPI scan service purchase."""
+    link: Annotated[str, StringConstraints(min_length=1, max_length=2048, strip_whitespace=True)]
+
+    @field_validator('link')
+    @classmethod
+    def validate_link(cls, v: str) -> str:
+        parsed = urlparse(v)
+        if parsed.scheme not in {'http', 'https'} or not parsed.netloc:
+            raise ValueError('A complete HTTP or HTTPS link is required')
         return v
 
 

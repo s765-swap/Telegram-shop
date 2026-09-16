@@ -7,21 +7,30 @@ from aiogram.types import CallbackQuery, Message, PreCheckoutQuery, SuccessfulPa
 from aiogram.fsm.context import FSMContext
 from aiogram.exceptions import TelegramBadRequest, TelegramForbiddenError
 
-from bot.database.methods import get_user_referral, buy_item_transaction, process_payment_with_referral, create_pending_payment
-from bot.keyboards import back, payment_menu, close, get_payment_choice
+from bot.database.methods import (
+    get_user_referral, buy_item_transaction, process_payment_with_referral,
+    create_pending_payment, create_upi_scan_order, eligible_upi_admin_ids,
+)
+from bot.keyboards import back, payment_menu, close, get_payment_choice, upi_order_keyboard, manual_deposit_keyboard
 from bot.logger_mesh import logger
 from bot.database.methods.audit import log_audit
 from bot.database.methods.cache_utils import safe_create_task
 from bot.misc import EnvKeys, ItemPurchaseRequest, validate_telegram_id, validate_money_amount, PaymentRequest
+from bot.misc.validators import UpiScanLinkRequest
 from bot.handlers.other import _any_payment_method_enabled, is_safe_item_name, caller_name
 from bot.misc.metrics import get_metrics
-from bot.misc.services import CryptoPayAPI, CryptoPayAPIError, send_stars_invoice, send_fiat_invoice
+from bot.misc.services import (
+    CryptoPayAPI, CryptoPayAPIError, send_stars_invoice, send_fiat_invoice,
+    BinanceAPI, BinanceAPIError,
+)
 from bot.misc.services.payment import _minor_units_for, payload_amount
 from bot.filters import ValidAmountFilter
 from bot.i18n import localize, esc
-from bot.states import BalanceStates
+from bot.states import BalanceStates, UpiScanFSM
 
 router = Router()
+
+UPI_SCAN_ITEM_NAME = "Upi scan"
 
 
 async def _notify_referrer_bonus(bot, user_id: int, amount: Decimal | int, payer_name: str, payer_id: int):
@@ -46,11 +55,7 @@ async def _notify_referrer_bonus(bot, user_id: int, amount: Decimal | int, payer
 
 @router.callback_query(F.data == "replenish_balance")
 async def replenish_balance_callback_handler(call: CallbackQuery, state: FSMContext):
-    """Ask user for the amount if at least one payment method is enabled."""
-    if not _any_payment_method_enabled():
-        await call.answer(localize("payments.not_configured"), show_alert=True)
-        return
-
+    """Collect a manual deposit request; an admin credits the balance after payment."""
     await call.message.edit_text(
         localize("payments.replenish_prompt", currency=EnvKeys.PAY_CURRENCY),
         reply_markup=back('profile')
@@ -60,7 +65,7 @@ async def replenish_balance_callback_handler(call: CallbackQuery, state: FSMCont
 
 @router.message(BalanceStates.waiting_amount, ValidAmountFilter())
 async def replenish_balance_amount(message: Message, state: FSMContext):
-    """Store amount and show payment methods."""
+    """Notify the manual deposit admin about the requested amount."""
     try:
         # Validate amount using Pydantic
         amount = validate_money_amount(
@@ -69,20 +74,30 @@ async def replenish_balance_amount(message: Message, state: FSMContext):
             max_amount=Decimal(EnvKeys.MAX_AMOUNT)
         )
 
-        await state.update_data(amount=int(amount))
-
-        await message.answer(
-            localize("payments.method_choose"),
-            reply_markup=get_payment_choice()
+        user_name = esc(message.from_user.username or message.from_user.first_name or str(message.from_user.id))
+        await message.bot.send_message(
+            EnvKeys.MANUAL_DEPOSIT_ADMIN_ID,
+            (
+                "Manual deposit request\n"
+                f"User: @{user_name}\n"
+                f"Telegram ID: <code>{message.from_user.id}</code>\n"
+                f"Requested amount: <b>{amount} {EnvKeys.PAY_CURRENCY}</b>"
+            ),
+            parse_mode="HTML",
         )
-        await state.set_state(BalanceStates.waiting_payment)
-
-    except ValueError:
         await message.answer(
-            localize("payments.replenish_invalid",
-                     min_amount=EnvKeys.MIN_AMOUNT,
-                     max_amount=EnvKeys.MAX_AMOUNT,
-                     currency=EnvKeys.PAY_CURRENCY),
+            localize(
+                "payments.manual.request_sent",
+                amount=amount,
+                currency=EnvKeys.PAY_CURRENCY,
+            ),
+            reply_markup=manual_deposit_keyboard(EnvKeys.MANUAL_DEPOSIT_ADMIN_ID),
+        )
+        await state.clear()
+
+    except (ValueError, TelegramBadRequest, TelegramForbiddenError):
+        await message.answer(
+            localize("payments.manual.admin_unavailable"),
             reply_markup=back('replenish_balance')
         )
 
@@ -103,7 +118,7 @@ async def invalid_amount(message: Message, state: FSMContext):
 
 @router.callback_query(
     BalanceStates.waiting_payment,
-    F.data.in_(["pay_cryptopay", "pay_stars", "pay_fiat"])
+    F.data.in_(["pay_cryptopay", "pay_stars", "pay_fiat", "pay_binance"])
 )
 async def process_replenish_balance(call: CallbackQuery, state: FSMContext):
     """Create an invoice for the chosen payment method."""
@@ -120,7 +135,8 @@ async def process_replenish_balance(call: CallbackQuery, state: FSMContext):
     provider_map = {
         "pay_cryptopay": "cryptopay",
         "pay_stars": "stars",
-        "pay_fiat": "fiat"
+        "pay_fiat": "fiat",
+        "pay_binance": "binance_usdt",
     }
     provider = provider_map.get(call.data)
 
@@ -214,11 +230,89 @@ async def process_replenish_balance(call: CallbackQuery, state: FSMContext):
                 return
             await state.clear()
 
+        elif call.data == "pay_binance":
+            if not (EnvKeys.BINANCE_API_KEY and EnvKeys.BINANCE_API_SECRET):
+                await call.answer(localize("payments.not_configured"), show_alert=True)
+                return
+            try:
+                expected_usdt = Decimal(str(amount_dec)) * Decimal(str(EnvKeys.BINANCE_USDT_RATE))
+                address = EnvKeys.BINANCE_DEPOSIT_ADDRESS
+                memo = ""
+                if not address:
+                    binance = BinanceAPI()
+                    address_data = await binance.get_deposit_address(EnvKeys.BINANCE_USDT_NETWORK)
+                    address = address_data.get("address", "")
+                    memo = address_data.get("tag", "")
+                if not address:
+                    raise BinanceAPIError("Binance deposit address is unavailable")
+                await state.update_data(
+                    binance_amount=int(amount_dec),
+                    binance_expected_usdt=str(expected_usdt.quantize(Decimal("0.00000001"))),
+                    binance_address=address,
+                )
+                await call.message.edit_text(
+                    localize(
+                        "payments.binance.instructions",
+                        amount=expected_usdt.quantize(Decimal("0.00000001")),
+                        network=EnvKeys.BINANCE_USDT_NETWORK,
+                        address=address,
+                        memo=memo or "-",
+                    ),
+                    reply_markup=back("replenish_balance"),
+                )
+                await state.set_state(BalanceStates.waiting_binance_txid)
+            except Exception as e:
+                logger.error("Binance deposit address error: %s", e)
+                await call.answer(localize("payments.not_configured"), show_alert=True)
+
     except Exception as e:
         logger.error(f"Payment processing error: {e}")
         await state.clear()
         await call.answer(localize("errors.something_wrong"), show_alert=True)
 
+
+@router.message(BalanceStates.waiting_binance_txid, F.text)
+async def process_binance_txid(message: Message, state: FSMContext):
+    """Verify a Binance USDT deposit by blockchain transaction ID."""
+    txid = (message.text or "").strip()
+    if not txid or len(txid) > 200 or any(ch.isspace() for ch in txid):
+        await message.answer(localize("payments.binance.invalid_txid"))
+        return
+
+    data = await state.get_data()
+    amount = Decimal(str(data.get("binance_amount", 0)))
+    expected_usdt = Decimal(str(data.get("binance_expected_usdt", 0)))
+    if amount <= 0 or expected_usdt <= 0:
+        await state.clear()
+        await message.answer(localize("payments.session_expired"), reply_markup=back("profile"))
+        return
+
+    try:
+        deposit = await BinanceAPI().verify_usdt_deposit(
+            txid, float(expected_usdt), EnvKeys.BINANCE_USDT_NETWORK,
+            data.get("binance_address", ""),
+        )
+    except BinanceAPIError:
+        await message.answer(localize("payments.binance.verification_failed"))
+        return
+
+    if not deposit:
+        await message.answer(localize("payments.binance.not_found"))
+        return
+
+    success, error_msg = await process_payment_with_referral(
+        user_id=message.from_user.id,
+        amount=amount,
+        provider="binance_usdt",
+        external_id=txid,
+        referral_percent=EnvKeys.REFERRAL_PERCENT,
+    )
+    if not success and error_msg != "already_processed":
+        await message.answer(localize("payments.processing_error"))
+        return
+    await message.answer(localize("payments.binance.confirmed", amount=amount, currency=EnvKeys.PAY_CURRENCY),
+                         reply_markup=back("profile"))
+    await state.clear()
 
 @router.callback_query(F.data == "check")
 async def checking_payment(call: CallbackQuery, state: FSMContext):
@@ -533,6 +627,14 @@ async def buy_item_callback_handler(call: CallbackQuery, state: FSMContext):
             reply_markup=simple_buttons(buttons),
         )
 
+        if purchase_data['item_name'] == UPI_SCAN_ITEM_NAME:
+            await state.update_data(
+                upi_scan_purchase_id=purchase_data['unique_id'],
+                upi_scan_bought_id=purchase_data['bought_id'],
+            )
+            await call.message.answer(localize('shop.upi_scan.prompt'))
+            await state.set_state(UpiScanFSM.waiting_link)
+
         safe_create_task(log_audit(
             "purchase",
             user_id=user_id,
@@ -551,3 +653,52 @@ async def buy_item_callback_handler(call: CallbackQuery, state: FSMContext):
             localize("errors.something_wrong"),
             show_alert=True
         )
+
+
+@router.message(UpiScanFSM.waiting_link, F.text)
+async def receive_upi_scan_link(message: Message, state: FSMContext):
+    """Forward the buyer's UPI link to the configured owner."""
+    try:
+        link = UpiScanLinkRequest(link=message.text).link
+    except ValueError:
+        await message.answer(localize('shop.upi_scan.invalid_link'))
+        return
+
+    data = await state.get_data()
+    purchase_id = data.get('upi_scan_purchase_id', 'unknown')
+    buyer_name = esc(message.from_user.username or message.from_user.first_name or str(message.from_user.id))
+    admin_text = (
+        "UPI scan request\n"
+        f"Buyer: @{buyer_name} ({message.from_user.id})\n"
+        f"Purchase: {purchase_id}\n"
+        f"Link: {esc(link)}"
+    )
+
+    try:
+        order_id = await create_upi_scan_order(data['upi_scan_bought_id'], message.from_user.id, link)
+        admin_text = f"Order UPI-{order_id}\n" + admin_text
+        admin_ids = await eligible_upi_admin_ids()
+        if EnvKeys.OWNER_ID not in admin_ids:
+            admin_ids.append(EnvKeys.OWNER_ID)
+        delivered = 0
+        for admin_id in admin_ids:
+            try:
+                await message.bot.send_message(
+                    admin_id,
+                    admin_text,
+                    parse_mode='HTML',
+                    reply_markup=upi_order_keyboard(order_id),
+                )
+                delivered += 1
+            except (TelegramBadRequest, TelegramForbiddenError) as e:
+                logger.warning("Failed to notify UPI admin %s for order %s: %s", admin_id, order_id, e)
+        if not delivered:
+            await message.answer(localize('shop.upi_scan.delivery_failed'))
+            return
+    except Exception as e:
+        logger.error("Failed to create UPI scan order %s: %s", purchase_id, e)
+        await message.answer(localize('shop.upi_scan.delivery_failed'))
+        return
+
+    await message.answer(localize('shop.upi_scan.sent'))
+    await state.clear()

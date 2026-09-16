@@ -135,7 +135,7 @@ async def db_cleanup(setup_test_database):
         ReferralEarnings, BoughtGoods, Operations, Payments,
         ItemValues, Goods, Categories, User, Role,
         Reviews, CartItems, PromoCodeUsages, PromoCodes,
-        StockSubscriptions,
+        StockSubscriptions, UpiScanOrder,
     )
 
     db = Database()
@@ -143,6 +143,7 @@ async def db_cleanup(setup_test_database):
         # Delete in FK order.
         await s.execute(delete(Reviews))
         await s.execute(delete(StockSubscriptions))
+        await s.execute(delete(UpiScanOrder))
         await s.execute(delete(CartItems))
         await s.execute(delete(PromoCodeUsages))
         await s.execute(delete(PromoCodes))
