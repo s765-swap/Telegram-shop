@@ -36,12 +36,14 @@ class EnvKeys(ABC):
 
     # Database. Railway can provide a complete private connection URL; local
     # Docker continues to use the individual POSTGRES_* settings.
-    DATABASE_URL: Final = _get_optional("DATABASE_URL", "")
-    POSTGRES_DB: Final = _get_optional("POSTGRES_DB", "")
-    POSTGRES_USER: Final = _get_optional("POSTGRES_USER", "")
-    POSTGRES_PASSWORD: Final = _get_optional("POSTGRES_PASSWORD", "")
-    DB_PORT: Final = int(_get_optional("DB_PORT", "5432"))
-    POSTGRES_HOST: Final = _get_optional("POSTGRES_HOST", "localhost")
+    DATABASE_URL: Final = _get_optional(
+        "DATABASE_URL", _get_optional("DATABASE_PRIVATE_URL", "")
+    )
+    POSTGRES_DB: Final = _get_optional("POSTGRES_DB", _get_optional("PGDATABASE", ""))
+    POSTGRES_USER: Final = _get_optional("POSTGRES_USER", _get_optional("PGUSER", ""))
+    POSTGRES_PASSWORD: Final = _get_optional("POSTGRES_PASSWORD", _get_optional("PGPASSWORD", ""))
+    DB_PORT: Final = int(_get_optional("DB_PORT", _get_optional("PGPORT", "5432")))
+    POSTGRES_HOST: Final = _get_optional("POSTGRES_HOST", _get_optional("PGHOST", ""))
     DB_POOL_SIZE: Final = int(_get_optional("DB_POOL_SIZE", "10"))
     DB_MAX_OVERFLOW: Final = int(_get_optional("DB_MAX_OVERFLOW", "20"))
 
@@ -111,10 +113,15 @@ class EnvKeys(ABC):
         if _database_url.startswith("postgresql://"):
             _database_url = "postgresql+asyncpg://" + _database_url[len("postgresql://"):]
         DATABASE_URL: Final = _database_url
-    else:
+    elif POSTGRES_HOST and POSTGRES_DB and POSTGRES_USER and POSTGRES_PASSWORD:
         DATABASE_URL: Final = (
             f"postgresql+asyncpg://{POSTGRES_USER}:{quote_plus(POSTGRES_PASSWORD)}"
             f"@{POSTGRES_HOST}:{DB_PORT}/{POSTGRES_DB}"
+        )
+    else:
+        raise ValueError(
+            "Database is not configured. Set DATABASE_URL to Railway's private URL "
+            "or provide PGHOST, PGPORT, PGDATABASE, PGUSER, and PGPASSWORD."
         )
 
     @classmethod
