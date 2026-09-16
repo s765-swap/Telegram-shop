@@ -11,16 +11,29 @@ def main_menu(role: int, channel: str | None = None, helper: str | None = None) 
     Main menu.
     """
     kb = InlineKeyboardBuilder()
-    kb.button(text=localize("btn.shop"), callback_data="shop")
-    kb.button(text=localize("btn.rules"), callback_data="rules")
-    kb.button(text=localize("btn.profile"), callback_data="profile")
+    kb.row(InlineKeyboardButton(text=localize("btn.shop"), callback_data="shop"))
+    kb.row(
+        InlineKeyboardButton(text=localize("btn.profile"), callback_data="profile"),
+        InlineKeyboardButton(text=localize("btn.rules"), callback_data="rules"),
+    )
     if helper:
-        kb.button(text=localize("btn.support"), url=f"tg://user?id={helper}")
+        support_button = InlineKeyboardButton(
+            text=localize("btn.support"), url=f"tg://user?id={helper}"
+        )
+    else:
+        support_button = None
     if channel:
-        kb.button(text=localize("btn.channel"), url=f"https://t.me/{channel.lstrip('@')}")
+        channel_button = InlineKeyboardButton(
+            text=localize("btn.channel"), url=f"https://t.me/{channel.lstrip('@')}"
+        )
+    else:
+        channel_button = None
+    if support_button and channel_button:
+        kb.row(support_button, channel_button)
+    elif support_button or channel_button:
+        kb.row(support_button or channel_button)
     if Permission.has_any_admin_perm(role):
-        kb.button(text=localize("btn.admin_menu"), callback_data="console")
-    kb.adjust(1)
+        kb.row(InlineKeyboardButton(text=localize("btn.admin_menu"), callback_data="console"))
     return kb.as_markup()
 
 
@@ -29,17 +42,27 @@ def profile_keyboard(referral_percent: int, user_items: int = 0, cart_count: int
     Profile keyboard with cart, history, subscriptions.
     """
     kb = InlineKeyboardBuilder()
-    kb.button(text=localize("btn.replenish"), callback_data="replenish_balance")
-    if referral_percent != 0:
-        kb.button(text=localize("btn.referral"), callback_data="referral_system")
-    if user_items != 0:
-        kb.button(text=localize("btn.purchased"), callback_data="bought_items")
     cart_text = localize("btn.cart", count=cart_count) if cart_count > 0 else localize("btn.cart_empty")
-    kb.button(text=cart_text, callback_data="cart")
-    kb.button(text=localize("btn.operation_history"), callback_data="operation_history")
-    kb.button(text=localize("btn.redeem_promo"), callback_data="redeem_promo")
-    kb.button(text=localize("btn.back"), callback_data="back_to_menu")
-    kb.adjust(1)
+    kb.row(
+        InlineKeyboardButton(text=localize("btn.replenish"), callback_data="replenish_balance"),
+        InlineKeyboardButton(text=cart_text, callback_data="cart"),
+    )
+    secondary = []
+    if referral_percent != 0:
+        secondary.append(InlineKeyboardButton(
+            text=localize("btn.referral"), callback_data="referral_system"
+        ))
+    if user_items != 0:
+        secondary.append(InlineKeyboardButton(
+            text=localize("btn.purchased"), callback_data="bought_items"
+        ))
+    for index in range(0, len(secondary), 2):
+        kb.row(*secondary[index:index + 2])
+    kb.row(
+        InlineKeyboardButton(text=localize("btn.operation_history"), callback_data="operation_history"),
+        InlineKeyboardButton(text=localize("btn.redeem_promo"), callback_data="redeem_promo"),
+    )
+    kb.row(InlineKeyboardButton(text=localize("btn.back"), callback_data="back_to_menu"))
     return kb.as_markup()
 
 

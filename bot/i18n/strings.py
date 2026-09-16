@@ -556,7 +556,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
 
     "en": {
         # === Common Buttons ===
-        "btn.shop": "🏪 Shop",
+        "btn.shop": "🛒 Browse products",
         "btn.search": "🔍 Search catalog",
         "btn.rules": "📜 Rules",
         "btn.profile": "👤 Profile",
@@ -588,12 +588,12 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "btn.admin.unblock": "✅ Unblock",
 
         # === Titles / Generic Texts ===
-        "menu.title": "⛩️ Main menu",
-        "profile.caption": "👤 <b>Profile</b> — <a href='tg://user?id={id}'>{name}</a>",
+        "menu.title": "🛍️ <b>Welcome to the shop!</b>\n\nChoose an option below to get started.",
+        "profile.caption": "💳 <b>Wallet</b> — <a href='tg://user?id={id}'>{name}</a>",
         "rules.not_set": "❌ Rules have not been added",
 
         # === Profile ===
-        "btn.replenish": "💳 Top up your balance",
+        "btn.replenish": "💰 Add funds",
         "btn.referral": "🎲 Referral system",
         "btn.purchased": "🎁 Purchased goods",
         "profile.referral_id": "👤 <b>Referral</b> — <code>{id}</code>",
