@@ -76,7 +76,7 @@ class EnvKeys(ABC):
     RULES: Final = _get_optional("RULES", "")
 
     # Locale & logs
-    BOT_LOCALE: Final = _get_optional("BOT_LOCALE", "ru")
+    BOT_LOCALE: Final = _get_optional("BOT_LOCALE", "en")
     BOT_LOGFILE: Final = _get_optional("BOT_LOGFILE", "logs/bot.log")
     BOT_AUDITFILE: Final = _get_optional("BOT_AUDITFILE", "logs/audit.log")
     LOG_TO_STDOUT: Final = _get_optional("LOG_TO_STDOUT", "1")
