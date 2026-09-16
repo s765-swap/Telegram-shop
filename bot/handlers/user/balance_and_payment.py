@@ -9,7 +9,7 @@ from aiogram.exceptions import TelegramBadRequest, TelegramForbiddenError
 
 from bot.database.methods import (
     get_user_referral, buy_item_transaction, process_payment_with_referral,
-    create_pending_payment, create_upi_scan_order, eligible_upi_admin_ids,
+    create_pending_payment, create_upi_scan_order,
 )
 from bot.keyboards import back, payment_menu, close, get_payment_choice, upi_order_keyboard, manual_deposit_keyboard
 from bot.logger_mesh import logger
@@ -677,22 +677,15 @@ async def receive_upi_scan_link(message: Message, state: FSMContext):
     try:
         order_id = await create_upi_scan_order(data['upi_scan_bought_id'], message.from_user.id, link)
         admin_text = f"Order UPI-{order_id}\n" + admin_text
-        admin_ids = await eligible_upi_admin_ids()
-        if EnvKeys.OWNER_ID not in admin_ids:
-            admin_ids.append(EnvKeys.OWNER_ID)
-        delivered = 0
-        for admin_id in admin_ids:
-            try:
-                await message.bot.send_message(
-                    admin_id,
-                    admin_text,
-                    parse_mode='HTML',
-                    reply_markup=upi_order_keyboard(order_id),
-                )
-                delivered += 1
-            except (TelegramBadRequest, TelegramForbiddenError) as e:
-                logger.warning("Failed to notify UPI admin %s for order %s: %s", admin_id, order_id, e)
-        if not delivered:
+        try:
+            await message.bot.send_message(
+                EnvKeys.UPI_ORDER_ADMIN_ID,
+                admin_text,
+                parse_mode='HTML',
+                reply_markup=upi_order_keyboard(order_id),
+            )
+        except (TelegramBadRequest, TelegramForbiddenError) as e:
+            logger.warning("Failed to notify UPI admin %s for order %s: %s", EnvKeys.UPI_ORDER_ADMIN_ID, order_id, e)
             await message.answer(localize('shop.upi_scan.delivery_failed'))
             return
     except Exception as e:

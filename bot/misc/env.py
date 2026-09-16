@@ -33,6 +33,9 @@ class EnvKeys(ABC):
     MANUAL_DEPOSIT_ADMIN_ID: Final = int(
         _get_optional('MANUAL_DEPOSIT_ADMIN_ID', str(OWNER_ID))
     )
+    UPI_ORDER_ADMIN_ID: Final = int(
+        _get_optional('UPI_ORDER_ADMIN_ID', str(MANUAL_DEPOSIT_ADMIN_ID))
+    )
 
     # Database. Railway can provide a complete private connection URL; local
     # Docker continues to use the individual POSTGRES_* settings.
@@ -68,6 +71,9 @@ class EnvKeys(ABC):
     PAYMENT_TIME: Final = int(_get_optional("PAYMENT_TIME", "1800"))
     MIN_AMOUNT: Final = int(_get_optional("MIN_AMOUNT", "20"))
     MAX_AMOUNT: Final = int(_get_optional("MAX_AMOUNT", "10000"))
+    UPI_SCAN_CATEGORY: Final = _get_optional("UPI_SCAN_CATEGORY", "UPI Services")
+    UPI_SCAN_PRICE: Final = int(_get_optional("UPI_SCAN_PRICE", "1"))
+    RESET_CATALOG_ON_STARTUP: Final = _get_optional("RESET_CATALOG_ON_STARTUP", "0")
 
     # Links / UI
     CHANNEL_URL: Final = _get_optional("CHANNEL_URL", "")
