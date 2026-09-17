@@ -95,7 +95,7 @@ def admin_console_keyboard(maintenance_mode: bool = False, role: int = 127) -> I
         maintenance_key = "admin.menu.maintenance_on" if maintenance_mode else "admin.menu.maintenance_off"
         kb.button(text=localize(maintenance_key), callback_data="toggle_maintenance")
     kb.button(text=localize("btn.back"), callback_data="back_to_menu")
-    kb.adjust(1)
+    kb.adjust(2)
     return kb.as_markup()
 
 
@@ -150,7 +150,7 @@ async def lazy_paginated_keyboard(
 
     for item in items:
         kb.button(text=item_text(item), callback_data=item_callback(item))
-    kb.adjust(1)
+    kb.adjust(2)
 
     for row in (extra_rows or []):
         kb.row(*row)
