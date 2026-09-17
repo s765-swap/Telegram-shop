@@ -125,8 +125,6 @@ async def _startup(dp: Dispatcher, bot: Bot, ctx: AppContext, storage) -> None:
     # Registration of handlers and models
     register_all_handlers(dp)
     await register_models()
-    from bot.database.methods import seed_upi_scan_catalog
-    await seed_upi_scan_catalog()
 
     # Security & authentication middleware
     security_middleware = SecurityMiddleware()
@@ -148,6 +146,11 @@ async def _startup(dp: Dispatcher, bot: Bot, ctx: AppContext, storage) -> None:
 
     # Caching (optional Redis) and background services
     ctx.cache_scheduler = await _setup_caching(storage)
+
+    # Seed after Redis is ready so catalog cache invalidations reach the shared cache.
+    from bot.database.methods import seed_upi_scan_catalog
+    await seed_upi_scan_catalog()
+    logging.info("UPI scan catalog seed completed")
 
     ctx.recovery_manager = RecoveryManager(bot)
     await ctx.recovery_manager.start()
