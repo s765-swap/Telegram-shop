@@ -125,11 +125,8 @@ async def _startup(dp: Dispatcher, bot: Bot, ctx: AppContext, storage) -> None:
     # Registration of handlers and models
     register_all_handlers(dp)
     await register_models()
-    from bot.database.methods import reset_and_seed_catalog, seed_upi_scan_catalog
-    if EnvKeys.RESET_CATALOG_ON_STARTUP == "1":
-        await reset_and_seed_catalog()
-    else:
-        await seed_upi_scan_catalog()
+    from bot.database.methods import seed_upi_scan_catalog
+    await seed_upi_scan_catalog()
 
     # Security & authentication middleware
     security_middleware = SecurityMiddleware()

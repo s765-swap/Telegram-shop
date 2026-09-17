@@ -8,4 +8,4 @@ from bot.database.methods.cache_utils import *
 from bot.database.methods.pricing import effective_price
 from bot.database.methods.audit import log_audit
 from bot.database.methods.upi_orders import *
-from bot.database.methods.catalog_seed import seed_upi_scan_catalog, reset_and_seed_catalog
+from bot.database.methods.catalog_seed import seed_upi_scan_catalog
